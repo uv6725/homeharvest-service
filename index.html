@@ -1,0 +1,227 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HomeHarvest Property Lookup</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 { font-size: 2.5rem; margin-bottom: 10px; }
+        .header p { opacity: 0.9; font-size: 1.1rem; }
+        .content { padding: 40px; }
+        .form-group { margin-bottom: 25px; }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 1rem;
+        }
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 40px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3); }
+        .btn:active { transform: translateY(0); }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .loading { display: none; text-align: center; padding: 20px; }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .result { display: none; margin-top: 30px; }
+        .result-header {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .result-header.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .result-header.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .property-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+        }
+        .property-card h3 { color: #667eea; margin-bottom: 15px; font-size: 1.3rem; }
+        .property-detail {
+            display: flex;
+            margin-bottom: 10px;
+            padding: 8px;
+            background: white;
+            border-radius: 5px;
+        }
+        .property-detail strong { min-width: 150px; color: #666; }
+        .property-detail span { color: #333; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏠 HomeHarvest Property Lookup</h1>
+            <p>Search for property details by address</p>
+        </div>
+        <div class="content">
+            <form id="propertyForm">
+                <div class="form-group">
+                    <label for="address">Street Address</label>
+                    <input type="text" id="address" name="address" placeholder="e.g., 123 Main St, San Diego, CA" required>
+                </div>
+                <div class="form-group">
+                    <label for="zip">ZIP Code (Optional)</label>
+                    <input type="text" id="zip" name="zip" placeholder="e.g., 92104">
+                </div>
+                <div class="form-group">
+                    <label for="listing_type">Listing Type</label>
+                    <select id="listing_type" name="listing_type">
+                        <option value="for_sale">For Sale</option>
+                        <option value="for_rent">For Rent</option>
+                        <option value="sold">Sold</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn" id="submitBtn">Search Properties</button>
+            </form>
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Searching for properties...</p>
+            </div>
+            <div class="result" id="result"></div>
+        </div>
+    </div>
+    <script>
+        const form = document.getElementById('propertyForm');
+        const loading = document.getElementById('loading');
+        const result = document.getElementById('result');
+        const submitBtn = document.getElementById('submitBtn');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const address = document.getElementById('address').value;
+            const zip = document.getElementById('zip').value;
+            const listingType = document.getElementById('listing_type').value;
+
+            loading.style.display = 'block';
+            result.style.display = 'none';
+            submitBtn.disabled = true;
+
+            try {
+                const response = await fetch('/property', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ address, zip, listing_type: listingType })
+                });
+
+                const data = await response.json();
+                loading.style.display = 'none';
+                submitBtn.disabled = false;
+                result.style.display = 'block';
+
+                if (response.ok && data.success) {
+                    displayProperties(data);
+                } else {
+                    displayError(data);
+                }
+            } catch (error) {
+                loading.style.display = 'none';
+                submitBtn.disabled = false;
+                result.style.display = 'block';
+                result.innerHTML = '<div class="result-header error"><h2>❌ Error</h2><p>Failed to connect to the server. Make sure the service is running.</p><p style="margin-top: 10px; font-size: 0.9rem;">' + error.message + '</p></div>';
+            }
+        });
+
+        function displayProperties(data) {
+            let html = '<div class="result-header success"><h2>✅ Found ' + data.count + ' Properties</h2></div>';
+            data.properties.forEach((property, index) => {
+                html += '<div class="property-card"><h3>Property #' + (index + 1) + '</h3>' + formatPropertyDetails(property) + '</div>';
+            });
+            result.innerHTML = html;
+        }
+
+        function formatPropertyDetails(property) {
+            let html = '';
+            for (const [key, value] of Object.entries(property)) {
+                if (value !== null && value !== undefined && value !== '') {
+                    html += '<div class="property-detail"><strong>' + formatKey(key) + ':</strong><span>' + formatValue(value) + '</span></div>';
+                }
+            }
+            return html;
+        }
+
+        function formatKey(key) {
+            return key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        }
+
+        function formatValue(value) {
+            if (typeof value === 'number') {
+                if (value > 1000) return '$' + value.toLocaleString();
+                return value;
+            }
+            return value;
+        }
+
+        function displayError(data) {
+            result.innerHTML = '<div class="result-header error"><h2>❌ ' + (data.message || 'Error Occurred') + '</h2>' + (data.error ? '<p>' + data.error + '</p>' : '') + '</div>';
+        }
+    </script>
+</body>
+</html>
